@@ -6,7 +6,7 @@ _last_send = 0.0
 _MIN_INTERVAL = 0.05
 _cooldown_until = 0.0
 _ntfy_last = 0.0
-_NTFY_INTERVAL = 0.35
+_NTFY_INTERVAL = 1.0
 _ntfy_cooldown_until = 0.0
 
 def arrow(trend_or_dir):
