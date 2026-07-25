@@ -74,7 +74,7 @@ data_ts = pd.Timestamp(data_ini)
 if mostra_config:
     with st.container():
         st.markdown('<div class="config-box">', unsafe_allow_html=True)
-        from notifier import tfs_activos, salvar_tfs_activos, send_telegram, cross_tfs_activos, salvar_cross_tfs_activos
+        from notifier import tfs_activos, salvar_tfs_activos, notify, cross_tfs_activos, salvar_cross_tfs_activos
         atuais = tfs_activos()
         cross_atuais = cross_tfs_activos()
         c1, c2 = st.columns(2)
@@ -88,9 +88,9 @@ if mostra_config:
             elif not al_on and len(cross_atuais) > 0: salvar_cross_tfs_activos([])
         t1, t2 = st.columns(2)
         with t1:
-            if st.button("🔔 Testar REVERSAL", use_container_width=True): send_telegram("<b>HFLE</b>\nReversal OK ✅")
+            if st.button("🔔 Testar REVERSAL", use_container_width=True): notify("<b>HFLE</b>\nReversal OK ✅")
         with t2:
-            if st.button("⚠️ Testar ALERTA", use_container_width=True): send_telegram("<b>HFLE</b>\nAlerta OK ✅")
+            if st.button("⚠️ Testar ALERTA", use_container_width=True): notify("<b>HFLE</b>\nAlerta OK ✅")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ── CARREGAR EVENTOS ──

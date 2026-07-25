@@ -1,11 +1,10 @@
 import json, os, time, urllib.request, urllib.error
 from datetime import datetime
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, NOTIFIER_MODE, NTFY_TOPIC
 
 _last_send = 0.0
 _MIN_INTERVAL = 0.05
 _cooldown_until = 0.0
-_cooldown_until = 0.0  # 50ms entre mensagens (~20 msg/s)
 
 def arrow(trend_or_dir):
     """▲ para UPTREND/UP, ▼ para DOWNTREND/DOWN, ● neutro."""
@@ -204,3 +203,35 @@ def send_telegram(message, silent=False):
         if not silent:
             print(f"  [Telegram] ERRO rede: {e}")
         return False
+
+
+def send_ntfy(message, silent=False):
+    if not NTFY_TOPIC:
+        if not silent:
+            print("  [ntfy] NTFY_TOPIC nao configurado")
+        return False
+    url = f"https://ntfy.sh/{NTFY_TOPIC}"
+    data = message.encode("utf-8")
+    req = urllib.request.Request(url, data=data,
+        headers={"Content-Type": "text/plain"})
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+        if not silent:
+            print(f"  [ntfy] OK — mensagem enviada ({len(message)} chars)")
+        return True
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        if not silent:
+            print(f"  [ntfy] ERRO: {e}")
+        return False
+
+
+def notify(message, silent=False):
+    """Envia para Telegram e/ou ntfy conforme NOTIFIER_MODE."""
+    ok = True
+    if NOTIFIER_MODE in ("telegram", "both"):
+        if not send_telegram(message, silent=silent):
+            ok = False
+    if NOTIFIER_MODE in ("ntfy", "both"):
+        if not send_ntfy(message, silent=silent):
+            ok = False
+    return ok
