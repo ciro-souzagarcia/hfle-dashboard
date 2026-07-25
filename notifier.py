@@ -258,3 +258,6 @@ def notify(message, silent=False):
         if not send_ntfy(message, silent=silent):
             ok = False
     return ok
+
+def cooldown_activo():
+    return time.time() < _cooldown_until or time.time() < _ntfy_cooldown_until
