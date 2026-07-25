@@ -167,9 +167,6 @@ def send_telegram(message, silent=False):
 
     agora = time.time()
     if agora < _cooldown_until:
-        falta = int(_cooldown_until - agora)
-        if not silent:
-            print(f"  [Telegram] Cooldown ativo — {falta}s restantes, ignorado")
         return False
 
     elapsed = agora - _last_send
@@ -198,7 +195,7 @@ def send_telegram(message, silent=False):
             segundos = int(m.group(1)) if m else 60
             _cooldown_until = time.time() + segundos
             if not silent:
-                print(f"  [Telegram] HTTP 429 — cooldown {segundos}s ativado")
+                print(f"  [Telegram] HTTP 429 — cooldown {segundos}s, restantes ignorados")
             return False
         if not silent:
             print(f"  [Telegram] HTTP {e.code} ({e.reason}): {corpo[:200]}")
