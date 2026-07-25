@@ -23,13 +23,12 @@ st.markdown("""
   .tf-dot-wrap { display: flex; flex-direction: column; align-items: center; margin: 0 2px; }
   .tf-row { display: flex; overflow-x: auto; gap: 2px; padding: 2px 0; flex-wrap: nowrap; }
 
-  .ev { display: flex; align-items: center; padding: 3px 0; border-bottom: 1px solid #222; font-size: 12px; gap: 4px; }
-  .ev-time { color: #888; min-width: 78px; font-size: 11px; }
-  .ev-tag-r { background:#2196F3; color:#000; border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; }
-  .ev-tag-a { background:#FF9800; color:#000; border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; }
-  .ev-tf { font-weight: 600; min-width: 30px; text-align: center; font-size: 11px; }
-  .ev-dir { min-width: 14px; font-weight: 700; }
-  .ev-desc { color: #aaa; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev { display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #333; font-size: 15px; gap: 6px; }
+  .ev-time { color: #aaa; min-width: 100px; font-size: 14px; }
+  .ev-tag-r { background:#2196F3; color:#000; border-radius: 4px; padding: 1px 7px; font-size: 12px; font-weight: 700; }
+  .ev-tag-a { background:#FF9800; color:#000; border-radius: 4px; padding: 1px 7px; font-size: 12px; font-weight: 700; }
+  .ev-tf { font-weight: 700; min-width: 40px; text-align: center; font-size: 14px; color: #fff; }
+  .ev-hma { color: #ddd; font-size: 14px; }
 
   .bottom-bar {
     position: fixed; bottom: 0; left: 0; right: 0;
@@ -214,7 +213,7 @@ try:
         for _, r in ev_df.iterrows():
             d = r["data"]
             dt_str = d.strftime("%d/%m %H:%M") if hasattr(d, "strftime") else str(d)
-            dir_cls = "color:#2196F3" if r["dir"] == "▲" else "color:#FF9800" if r["dir"] == "▼" else ""
+            hma = r["desc"] if r["tipo"] == "A" else r.get("hma", "")
             tag = "ev-tag-r" if r["tipo"] == "R" else "ev-tag-a"
             tag_txt = "R" if r["tipo"] == "R" else "A"
             st.markdown(
@@ -222,8 +221,7 @@ try:
                 f'<span class="ev-time">{dt_str}</span>'
                 f'<span class="{tag}">{tag_txt}</span>'
                 f'<span class="ev-tf">{r["tf"]}</span>'
-                f'<span class="ev-dir" style="{dir_cls}">{r["dir"]}</span>'
-                f'<span class="ev-desc">{r["desc"]}</span>'
+                f'<span class="ev-hma">{hma}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
