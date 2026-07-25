@@ -5,6 +5,9 @@ from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, NOTIFIER_MODE, NTFY_TOP
 _last_send = 0.0
 _MIN_INTERVAL = 0.05
 _cooldown_until = 0.0
+_ntfy_last = 0.0
+_NTFY_INTERVAL = 0.35
+_ntfy_cooldown_until = 0.0
 
 def arrow(trend_or_dir):
     """▲ para UPTREND/UP, ▼ para DOWNTREND/DOWN, ● neutro."""
@@ -206,19 +209,39 @@ def send_telegram(message, silent=False):
 
 
 def send_ntfy(message, silent=False):
+    global _ntfy_last, _ntfy_cooldown_until
     if not NTFY_TOPIC:
         if not silent:
             print("  [ntfy] NTFY_TOPIC nao configurado")
         return False
+
+    agora = time.time()
+    if agora < _ntfy_cooldown_until:
+        return False
+
+    elapsed = agora - _ntfy_last
+    if elapsed < _NTFY_INTERVAL:
+        time.sleep(_NTFY_INTERVAL - elapsed)
+
     url = f"https://ntfy.sh/{NTFY_TOPIC}"
     data = message.encode("utf-8")
     req = urllib.request.Request(url, data=data,
         headers={"Content-Type": "text/plain"})
     try:
         resp = urllib.request.urlopen(req, timeout=30)
+        _ntfy_last = time.time()
         if not silent:
             print(f"  [ntfy] OK — mensagem enviada ({len(message)} chars)")
         return True
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            _ntfy_cooldown_until = time.time() + 5
+            if not silent:
+                print("  [ntfy] HTTP 429 — cooldown 5s")
+            return False
+        if not silent:
+            print(f"  [ntfy] ERRO: HTTP {e.code}")
+        return False
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         if not silent:
             print(f"  [ntfy] ERRO: {e}")
