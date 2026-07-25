@@ -3,7 +3,9 @@ from datetime import datetime
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 _last_send = 0.0
-_MIN_INTERVAL = 0.05  # 50ms entre mensagens (~20 msg/s)
+_MIN_INTERVAL = 0.05
+_cooldown_until = 0.0
+_cooldown_until = 0.0  # 50ms entre mensagens (~20 msg/s)
 
 def arrow(trend_or_dir):
     """▲ para UPTREND/UP, ▼ para DOWNTREND/DOWN, ● neutro."""
@@ -157,14 +159,20 @@ def _fmt_dt(dt):
     return str(dt)
 
 def send_telegram(message, silent=False):
-    global _last_send
+    global _last_send, _cooldown_until
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         if not silent:
             print("  [Telegram] Token ou Chat_ID nao configurados (defina no .env)")
         return False
 
-    # rate limit: respeita intervalo minimo
-    elapsed = time.time() - _last_send
+    agora = time.time()
+    if agora < _cooldown_until:
+        falta = int(_cooldown_until - agora)
+        if not silent:
+            print(f"  [Telegram] Cooldown ativo — {falta}s restantes, ignorado")
+        return False
+
+    elapsed = agora - _last_send
     if elapsed < _MIN_INTERVAL:
         time.sleep(_MIN_INTERVAL - elapsed)
 
@@ -176,33 +184,26 @@ def send_telegram(message, silent=False):
     }).encode()
     req = urllib.request.Request(url, data=data,
         headers={"Content-Type": "application/json"})
-    for attempt in range(5):
-        try:
-            resp = urllib.request.urlopen(req, timeout=30)
-            _last_send = time.time()
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+        _last_send = time.time()
+        if not silent:
+            print(f"  [Telegram] OK — mensagem enviada ({len(message)} chars)")
+        return True
+    except urllib.error.HTTPError as e:
+        corpo = e.read().decode("utf-8", errors="replace")
+        if e.code == 429:
+            import re as _re
+            m = _re.search(r'"retry_after":\s*(\d+)', corpo)
+            segundos = int(m.group(1)) if m else 60
+            _cooldown_until = time.time() + segundos
             if not silent:
-                print(f"  [Telegram] OK — mensagem enviada ({len(message)} chars)")
-            return True
-        except urllib.error.HTTPError as e:
-            corpo = e.read().decode("utf-8", errors="replace")
-            if e.code == 429:
-                import re as _re
-                m = _re.search(r'"retry_after":\s*(\d+)', corpo)
-                segundos = int(m.group(1)) if m else 30
-                if not silent:
-                    print(f"  [Telegram] HTTP 429 — rate limit, aguardando {segundos}s (tentativa {attempt+1}/5)")
-                time.sleep(min(segundos, 120))
-                continue
-            if not silent:
-                print(f"  [Telegram] HTTP {e.code} ({e.reason}): {corpo[:200]}")
+                print(f"  [Telegram] HTTP 429 — cooldown {segundos}s ativado")
             return False
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            if not silent:
-                print(f"  [Telegram] ERRO rede: {e}")
-            if attempt < 4:
-                time.sleep(5)
-                continue
-            return False
-    if not silent:
-        print("  [Telegram] Desistindo apos 5 tentativas (429)")
-    return False
+        if not silent:
+            print(f"  [Telegram] HTTP {e.code} ({e.reason}): {corpo[:200]}")
+        return False
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        if not silent:
+            print(f"  [Telegram] ERRO rede: {e}")
+        return False
