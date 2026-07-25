@@ -2,6 +2,11 @@
 $origem  = "C:\Users\garciac\OneDrive\Meus Documentos\Forex\iForex\Projetos\HLFE\Desenvolvimento\Versão atual"
 $destino = Join-Path $origem "cloud_deploy"
 
+# Guarda credenciais git para nao pedir password a cada push
+$repoUrl = "https://github.com/ciro-souzagarcia/hfle-dashboard.git"
+Set-Location -LiteralPath $destino
+git config credential.helper manager  # usa Windows Credential Manager
+
 Write-Host "Copiando OUTPUT_M*.csv ..." -ForegroundColor Cyan
 Copy-Item -Path (Join-Path $origem "OUTPUT_M*.csv") -Destination $destino -Force
 
