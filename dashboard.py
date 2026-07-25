@@ -3,31 +3,48 @@ from datetime import datetime
 from config import CROSS_TF_SLOW, MT5_HISTORY_START_DATE
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-CORES = {"UPTREND": "#2196F3", "DOWNTREND": "#FF9800", "NEUTRAL": "#9E9E9E"}
 TFS = sorted(int(m) for m in CROSS_TF_SLOW if int(m) > 1)
 
-st.set_page_config(page_title="HFLE Dashboard", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="HFLE", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
-@media (max-width: 768px) {
-  div[data-testid="stSidebarNav"] { display: none; }
-  .stApp header { display: none; }
-  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-}
-@media (min-width: 769px) {
-  .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-}
-.event-row {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  padding: 3px 0; border-bottom: 1px solid #333; font-size: 13px;
-}
-.event-time { color: #aaa; min-width: 80px; }
-.event-tf { font-weight: 600; min-width: 36px; text-align: center; }
-.event-dir-up { color: #2196F3; font-weight: 700; }
-.event-dir-down { color: #FF9800; font-weight: 700; }
-.event-tag-up { background:#2196F3; color:#000; border-radius:4px; padding:1px 5px; font-size:10px; }
-.event-tag-down { background:#FF9800; color:#000; border-radius:4px; padding:1px 5px; font-size:10px; }
-div[data-testid="stVerticalBlock"] { gap: 4px; }
+  .stApp { padding: 4px 8px !important; }
+  .stApp header, #MainMenu, footer { display: none !important; }
+  div[data-testid="stVerticalBlock"] { gap: 2px !important; }
+  div[data-testid="stHorizontalBlock"] { gap: 4px !important; flex-wrap: wrap; }
+
+  .tf-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 50%;
+    font-size: 18px; font-weight: 700;
+    margin: 2px; flex-shrink: 0;
+  }
+  .tf-dot-label { text-align: center; font-size: 9px; color: #aaa; margin-top: -2px; }
+  .tf-dot-wrap { display: flex; flex-direction: column; align-items: center; margin: 0 2px; }
+  .tf-row { display: flex; overflow-x: auto; gap: 2px; padding: 2px 0; flex-wrap: nowrap; }
+
+  .ev { display: flex; align-items: center; padding: 3px 0; border-bottom: 1px solid #222; font-size: 12px; gap: 4px; }
+  .ev-time { color: #888; min-width: 78px; font-size: 11px; }
+  .ev-tag-r { background:#2196F3; color:#000; border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; }
+  .ev-tag-a { background:#FF9800; color:#000; border-radius: 3px; padding: 0 4px; font-size: 9px; font-weight: 700; }
+  .ev-tf { font-weight: 600; min-width: 30px; text-align: center; font-size: 11px; }
+  .ev-dir { min-width: 14px; font-weight: 700; }
+  .ev-desc { color: #aaa; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0e1117; border-top: 1px solid #333;
+    padding: 4px 8px; display: flex; align-items: center; gap: 6px;
+    z-index: 999;
+  }
+  .bottom-bar select, .bottom-bar input { font-size: 12px; }
+
+  body { padding-bottom: 50px; }
+  [data-testid="stDateInput"] { min-width: 100px; }
+  [data-testid="stDateInput"] input { font-size: 12px; padding: 2px 6px; }
+  .stButton button { font-size: 11px; padding: 2px 8px; min-height: 0; }
+
+  .config-popup { background:#1a1d23; border:1px solid #444; border-radius:8px; padding:8px; margin:4px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -66,47 +83,6 @@ def carregar_cross_tf(tfs_filtro, data_ts):
             pass
     return pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
 
-# ═══════════ SIDEBAR (desktop) ═══════════
-st.sidebar.title("HFLE Dashboard")
-modo = st.sidebar.radio("Modo", ["Histórico", "Online"], index=0)
-tf_sel = st.sidebar.selectbox("TF", ["Todos"] + [f"M{t}" for t in TFS], index=0)
-tf_all = tf_sel == "Todos"
-tf_num = None if tf_all else int(tf_sel.replace("M", ""))
-if modo == "Online":
-    intervalo = st.sidebar.slider("Auto refresh (s)", 1, 60, 5)
-
-with st.sidebar.expander("Telegram (REVERSAL)", expanded=False):
-    from notifier import tfs_activos, salvar_tfs_activos, send_telegram, cross_tfs_activos, salvar_cross_tfs_activos
-    atuais = tfs_activos()
-    novos = []
-    for tf in sorted(TFS):
-        ligado = st.checkbox(f"M{tf}", value=tf in atuais, key=f"tel_{tf}")
-        if ligado:
-            novos.append(tf)
-    if set(novos) != atuais:
-        salvar_tfs_activos(novos)
-    if st.button("🔔 Testar"):
-        ok = send_telegram("<b>HFLE Dashboard</b>\nTeste OK ✅")
-        st.success("Enviada!") if ok else st.error("Falha")
-
-with st.sidebar.expander("⚠️ Alerta Cross-TF", expanded=False):
-    cross_atuais = cross_tfs_activos()
-    cross_novos = []
-    for tf in sorted(TFS):
-        ligado = st.checkbox(f"M{tf}", value=tf in cross_atuais, key=f"cross_{tf}")
-        if ligado:
-            cross_novos.append(tf)
-    if set(cross_novos) != cross_atuais:
-        salvar_cross_tfs_activos(cross_novos)
-    if st.button("🔔 Testar Cross"):
-        ok = send_telegram("<b>HFLE Dashboard</b>\n⚠ Teste Cross OK ✅")
-        st.success("Enviada!") if ok else st.error("Falha")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"**Última atualização:** {datetime.now():%H:%M:%S}")
-
-# ═══════════ ESTADO DOS TIMEFRAMES ═══════════
-st.subheader("Estado")
 def seta(trend):
     if trend == "UPTREND":
         return "▲", "#2196F3"
@@ -114,50 +90,102 @@ def seta(trend):
         return "▼", "#FF9800"
     return "●", "#9E9E9E"
 
-cards = []
+# ── state ──
+if "show_config" not in st.session_state:
+    st.session_state.show_config = False
+
+# ═══ HEADER ═══
+st.markdown(
+    f'<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">'
+    f'<span style="font-weight:700;font-size:16px;">▎HFLE</span>'
+    f'<span style="color:#888;font-size:11px;">{datetime.now():%H:%M}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
+
+# ═══ TF ROW ═══
+tfs_html = '<div class="tf-row">'
 for tf in TFS:
     df = carregar_output(tf)
     if df is None or len(df) == 0:
-        continue
-    fp = os.path.join(BASE, f"OUTPUT_M{tf}.csv")
-    mtime = os.path.getmtime(fp)
-    idade_min = (time.time() - mtime) / 60
-    trend = str(df.iloc[-1].get("trend", "NEUTRAL"))
-    sym, cor = seta(trend)
-    cards.append((tf, cor, sym, idade_min))
-
-st.markdown('<div class="card-grid">', unsafe_allow_html=True)
-for tf, cor, sym, idade_min in cards:
-    if idade_min < 2:
-        rodape = f'<span style="color:#9E9E9E">✓</span>'
-    elif idade_min < 30:
-        rodape = f'<span style="color:#888">{int(idade_min)}\'</span>'
+        sym, cor = "●", "#555"
     else:
-        rodape = f'<span style="color:#FF9800">⚠ {int(idade_min)}\'</span>'
-    st.markdown(
-        f'<div style="background:{cor}15;border:1.5px solid {cor}60;'
-        f'padding:6px 2px;border-radius:10px;text-align:center;">'
-        f'<div style="font-size:24px;line-height:1.2;color:{cor};font-weight:700">{sym}</div>'
-        f'<div style="font-weight:600;font-size:12px">M{tf}</div>'
-        f'<div style="font-size:10px">{rodape}</div></div>',
-        unsafe_allow_html=True,
+        trend = str(df.iloc[-1].get("trend", "NEUTRAL"))
+        sym, cor = seta(trend)
+    borda = cor
+    tfs_html += (
+        f'<div class="tf-dot-wrap">'
+        f'<div class="tf-dot" style="background:{cor}20;border:2px solid {borda}80;color:{cor};">{sym}</div>'
+        f'<div class="tf-dot-label">M{tf}</div>'
+        f'</div>'
     )
-st.markdown('</div>', unsafe_allow_html=True)
+tfs_html += '</div>'
+st.markdown(tfs_html, unsafe_allow_html=True)
 
-# ═══════════ ULTIMOS EVENTOS (compacto) ═══════════
-st.markdown("---")
-st.subheader("Eventos")
-data_ini = st.date_input(
-    "De", value=datetime.strptime(MT5_HISTORY_START_DATE, "%Y-%m-%d").date(),
-    key="ev_data_ini", label_visibility="collapsed",
+# ═══ DATE + FILTER BAR (flutuante no topo) ═══
+col_data, col_conf, _ = st.columns([1.5, 1, 1])
+with col_data:
+    data_ini = st.date_input(
+        "📅", value=datetime.strptime(MT5_HISTORY_START_DATE, "%Y-%m-%d").date(),
+        key="data_picker", label_visibility="collapsed",
+    )
+with col_conf:
+    if st.button("⚙️", help="Configurar notificações Telegram"):
+        st.session_state.show_config = not st.session_state.show_config
+
+data_ts = pd.Timestamp(data_ini)
+
+# ── config popup ──
+if st.session_state.show_config:
+    with st.container():
+        st.markdown('<div class="config-popup">', unsafe_allow_html=True)
+        from notifier import tfs_activos, salvar_tfs_activos, send_telegram, cross_tfs_activos, salvar_cross_tfs_activos
+        st.markdown('<span style="font-weight:600;font-size:12px;">🔔 REVERSAL</span>', unsafe_allow_html=True)
+        atuais = tfs_activos()
+        cols_r = st.columns(8)
+        novos = []
+        for i, tf in enumerate(sorted(TFS)):
+            with cols_r[i % 8]:
+                if st.checkbox(f"M{tf}", value=tf in atuais, key=f"r_{tf}"):
+                    novos.append(tf)
+        if set(novos) != atuais:
+            salvar_tfs_activos(novos)
+
+        st.markdown('<span style="font-weight:600;font-size:12px;">⚠️ ALERTA</span>', unsafe_allow_html=True)
+        cross_atuais = cross_tfs_activos()
+        cols_a = st.columns(8)
+        cross_novos = []
+        for i, tf in enumerate(sorted(TFS)):
+            with cols_a[i % 8]:
+                if st.checkbox(f"M{tf}", value=tf in cross_atuais, key=f"a_{tf}"):
+                    cross_novos.append(tf)
+        if set(cross_novos) != cross_atuais:
+            salvar_cross_tfs_activos(cross_novos)
+
+        ct, t1, t2 = st.columns([1, 1, 1])
+        with t1:
+            if st.button("🔔 Testar Reversal", use_container_width=True):
+                send_telegram("<b>HFLE</b>\nReversal OK ✅")
+        with t2:
+            if st.button("⚠️ Testar Alerta", use_container_width=True):
+                send_telegram("<b>HFLE</b>\nAlerta OK ✅")
+        with ct:
+            if st.button("✕ Fechar", use_container_width=True):
+                st.session_state.show_config = False
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ═══ EVENTOS ═══
+st.markdown(
+    f'<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;margin-top:2px;">'
+    f'<span style="font-size:13px;font-weight:600;">Eventos</span>'
+    f'<span style="color:#888;font-size:10px;">{data_ini}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
 )
 
-tfs_filtro = [tf_num] if tf_num else TFS
-data_ts = pd.Timestamp(data_ini)
-total = 0
-
+tfs_filtro = TFS
+eventos = []
 try:
-    eventos = []
     for tf in tfs_filtro:
         df = carregar_output(tf)
         if df is None:
@@ -175,43 +203,31 @@ try:
         for _, r in cross_df.iterrows():
             direction = str(r.get("direction", "")).upper()
             arrow = "▲" if direction == "UP" else "▼"
-            sinal_cls = "event-dir-up" if direction == "UP" else "event-dir-down"
             eventos.append({
                 "tipo": "A", "data": r["datetime"], "tf": f"M{int(r['slow_tf'])}",
-                "desc": f'HMA{r["period"]}', "dir": f'{arrow}',
+                "desc": f'HMA{r["period"]}', "dir": arrow,
             })
 
     if eventos:
         ev_df = pd.DataFrame(eventos)
-        ev_df = ev_df.sort_values("data", ascending=False).head(200)
-        total = len(ev_df)
+        ev_df = ev_df.sort_values("data", ascending=False).head(60)
         for _, r in ev_df.iterrows():
             d = r["data"]
-            if hasattr(d, "strftime"):
-                dt_str = d.strftime("%d/%m %H:%M")
-            else:
-                dt_str = str(d)
-            cls_dir = "event-dir-up" if "▲" in str(r["dir"]) else "event-dir-down" if "▼" in str(r["dir"]) else ""
-            tag = f'<span class="event-tag-up">R</span>' if r["tipo"] == "R" else f'<span class="event-tag-down">A</span>'
+            dt_str = d.strftime("%d/%m %H:%M") if hasattr(d, "strftime") else str(d)
+            dir_cls = "color:#2196F3" if r["dir"] == "▲" else "color:#FF9800" if r["dir"] == "▼" else ""
+            tag = "ev-tag-r" if r["tipo"] == "R" else "ev-tag-a"
+            tag_txt = "R" if r["tipo"] == "R" else "A"
             st.markdown(
-                f'<div class="event-row">'
-                f'<span class="event-time">{dt_str}</span>'
-                f'{tag}'
-                f'<span class="event-tf">{r["tf"]}</span>'
-                f'<span class="{cls_dir}">{r["dir"]}</span>'
-                f'<span style="color:#ccc">{r["desc"]}</span>'
+                f'<div class="ev">'
+                f'<span class="ev-time">{dt_str}</span>'
+                f'<span class="{tag}">{tag_txt}</span>'
+                f'<span class="ev-tf">{r["tf"]}</span>'
+                f'<span class="ev-dir" style="{dir_cls}">{r["dir"]}</span>'
+                f'<span class="ev-desc">{r["desc"]}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-        st.caption(f"{total} eventos desde {data_ini}")
     else:
-        st.info("Nenhum evento encontrado no período.")
+        st.info("Nenhum evento")
 except Exception as e:
-    st.error(f"Erro: {e}")
-    import traceback
-    st.code(traceback.format_exc())
-
-# ═══════════ ONLINE ═══════════
-if modo == "Online":
-    time.sleep(intervalo)
-    st.rerun()
+    st.error(str(e))
