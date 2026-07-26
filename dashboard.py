@@ -130,22 +130,29 @@ for fp in sorted(glob.glob(os.path.join(BASE, "CROSS_TF_M*_VS_M*.csv"))):
 st.caption(f"{len(reversais)} reversais, {len(alertas)} alertas")
 
 # ── ABAS ──
-aba_rev, aba_al = st.tabs(["🔄 REVERSAL", "⚠️ ALERTA"])
+aba_tudo, aba_rev, aba_al = st.tabs(["📋 TODOS", "🔄 REVERSAL", "⚠️ ALERTA"])
+
+combinados = []
+for r in reversais:
+    combinados.append({"data": r["data"], "tf": r["tf"], "hma": r["hma"], "tipo": "R"})
+for a in alertas:
+    combinados.append({"data": a["data"], "tf": a["tf"], "hma": a["hma"], "tipo": "A"})
+
+def _render_lista(eventos):
+    if not eventos:
+        st.info("Nenhum")
+        return
+    df = pd.DataFrame(eventos).sort_values("data", ascending=False)
+    for _, r in df.iterrows():
+        ts = r["data"].strftime("%d/%m %H:%M") if hasattr(r["data"], "strftime") else str(r["data"])
+        e_tag = "ev-tag-r" if r["tipo"] == "R" else "ev-tag-a"
+        st.markdown(f'<div class="ev"><span class="ev-time">{ts}</span><span class="{e_tag}">{r["tipo"]}</span><span class="ev-tf">{r["tf"]}</span><span class="ev-hma">{r["hma"]}</span></div>', unsafe_allow_html=True)
+
+with aba_tudo:
+    _render_lista(combinados)
 
 with aba_rev:
-    if reversais:
-        df_r = pd.DataFrame(reversais).sort_values("data", ascending=False)
-        for _, r in df_r.iterrows():
-            ts = r["data"].strftime("%d/%m %H:%M") if hasattr(r["data"], "strftime") else str(r["data"])
-            st.markdown(f'<div class="ev"><span class="ev-time">{ts}</span><span class="ev-tag-r">R</span><span class="ev-tf">{r["tf"]}</span><span class="ev-hma">{r["hma"]}</span></div>', unsafe_allow_html=True)
-    else:
-        st.info("Nenhum")
+    _render_lista(reversais)
 
 with aba_al:
-    if alertas:
-        df_a = pd.DataFrame(alertas).sort_values("data", ascending=False)
-        for _, r in df_a.iterrows():
-            ts = r["data"].strftime("%d/%m %H:%M") if hasattr(r["data"], "strftime") else str(r["data"])
-            st.markdown(f'<div class="ev"><span class="ev-time">{ts}</span><span class="ev-tag-a">A</span><span class="ev-tf">{r["tf"]}</span><span class="ev-hma">{r["hma"]}</span></div>', unsafe_allow_html=True)
-    else:
-        st.info("Nenhum")
+    _render_lista(alertas)
