@@ -62,8 +62,8 @@ tfs_html = '<div class="tf-row">'
 for tf in TFS:
     fp = os.path.join(BASE, f"OUTPUT_M{tf}.csv")
     try:
-        df = pd.read_csv(fp, sep=";", decimal=",", nrows=1)
-        trend = str(df.iloc[-1].get("trend", "NEUTRAL"))
+        df = pd.read_csv(fp, sep=";", decimal=",", low_memory=False, dtype={"trend": str})
+        trend = str(df["trend"].iloc[-1]) if "trend" in df.columns and len(df) > 0 else "NEUTRAL"
         sym, cor = ("▲", "#2196F3") if trend == "UPTREND" else ("▼", "#FF9800") if trend == "DOWNTREND" else ("●", "#9E9E9E")
     except:
         sym, cor = "●", "#555"
