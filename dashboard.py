@@ -29,11 +29,11 @@ st.markdown("""
   [data-testid="stDateInput"] { min-width:100px; }
   [data-testid="stDateInput"] input { font-size:12px;padding:2px 6px; }
   .stButton button { font-size:11px;padding:2px 8px;min-height:0; }
-  .config-box { background:#1a1d23;border:1px solid #444;border-radius:8px;padding:8px;margin:4px 0; }
   .stTabs [data-baseweb="tab"] { font-size:14px;padding:4px 12px; }
 </style>
 """, unsafe_allow_html=True)
 
+# ═══ HEADER ═══
 st.markdown(
     f'<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">'
     f'<span style="font-weight:700;font-size:16px;">▎HFLE</span>'
@@ -42,14 +42,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── listar ficheiros (debug) ──
-arqs = [f for f in os.listdir(BASE) if f.endswith(".csv")]
-if len(arqs) == 0:
-    st.error("Nenhum CSV encontrado em " + BASE)
-else:
-    st.caption(f"{len(arqs)} CSVs carregados")
-
-# ── TF ROW ──
 def _arrow_dir(trend_or_dir):
     t = str(trend_or_dir).upper()
     if t in ("UPTREND", "UP"):
@@ -58,6 +50,7 @@ def _arrow_dir(trend_or_dir):
         return "▼"
     return ""
 
+# ═══ TF DOTS ═══
 tfs_html = '<div class="tf-row">'
 for tf in TFS:
     fp = os.path.join(BASE, f"OUTPUT_M{tf}.csv")
@@ -71,39 +64,31 @@ for tf in TFS:
 tfs_html += '</div>'
 st.markdown(tfs_html, unsafe_allow_html=True)
 
-# ── DATE BAR ──
-col_data, col_conf = st.columns([3, 1])
-with col_data:
-    data_ini = st.date_input("📅", value=datetime.strptime(MT5_HISTORY_START_DATE, "%Y-%m-%d").date(), label_visibility="collapsed")
-with col_conf:
-    mostra_config = st.checkbox("⚙️", label_visibility="collapsed")
-
+# ═══ DATE ═══
+data_ini = st.date_input("📅", value=datetime.strptime(MT5_HISTORY_START_DATE, "%Y-%m-%d").date(), label_visibility="collapsed")
 data_ts = pd.Timestamp(data_ini)
 
-# ── CONFIG ──
-if mostra_config:
-    with st.container():
-        st.markdown('<div class="config-box">', unsafe_allow_html=True)
-        from notifier import tfs_activos, salvar_tfs_activos, notify, cross_tfs_activos, salvar_cross_tfs_activos
-        atuais = tfs_activos()
-        cross_atuais = cross_tfs_activos()
-        c1, c2 = st.columns(2)
-        with c1:
-            rev_on = st.checkbox("🔔 REVERSAL", value=len(atuais) > 0)
-            if rev_on and len(atuais) == 0: salvar_tfs_activos(TFS)
-            elif not rev_on and len(atuais) > 0: salvar_tfs_activos([])
-        with c2:
-            al_on = st.checkbox("⚠️ ALERTA", value=len(cross_atuais) > 0)
-            if al_on and len(cross_atuais) == 0: salvar_cross_tfs_activos(TFS)
-            elif not al_on and len(cross_atuais) > 0: salvar_cross_tfs_activos([])
-        t1, t2 = st.columns(2)
-        with t1:
-            if st.button("🔔 Testar REVERSAL", use_container_width=True): notify("<b>HFLE</b>\nReversal OK ✅")
-        with t2:
-            if st.button("⚠️ Testar ALERTA", use_container_width=True): notify("<b>HFLE</b>\nAlerta OK ✅")
-        st.markdown('</div>', unsafe_allow_html=True)
+# ═══ CONFIG ═══
+with st.expander("🔔 REVERSAL / ⚠️ ALERTA", expanded=False):
+    from notifier import tfs_activos, salvar_tfs_activos, notify, cross_tfs_activos, salvar_cross_tfs_activos
+    atuais = tfs_activos()
+    cross_atuais = cross_tfs_activos()
+    c1, c2 = st.columns(2)
+    with c1:
+        rev_on = st.checkbox("🔔 REVERSAL", value=len(atuais) > 0)
+        if rev_on and len(atuais) == 0: salvar_tfs_activos(TFS)
+        elif not rev_on and len(atuais) > 0: salvar_tfs_activos([])
+    with c2:
+        al_on = st.checkbox("⚠️ ALERTA", value=len(cross_atuais) > 0)
+        if al_on and len(cross_atuais) == 0: salvar_cross_tfs_activos(TFS)
+        elif not al_on and len(cross_atuais) > 0: salvar_cross_tfs_activos([])
+    t1, t2 = st.columns(2)
+    with t1:
+        if st.button("🔔 Testar REVERSAL", use_container_width=True): notify("<b>HFLE</b>\nReversal OK ✅")
+    with t2:
+        if st.button("⚠️ Testar ALERTA", use_container_width=True): notify("<b>HFLE</b>\nAlerta OK ✅")
 
-# ── CARREGAR EVENTOS ──
+# ═══ CARREGAR EVENTOS ═══
 reversais = []
 alertas = []
 for tf in TFS:
@@ -143,7 +128,7 @@ for fp in sorted(glob.glob(os.path.join(BASE, "CROSS_TF_M*_VS_M*.csv"))):
 
 st.caption(f"{len(reversais)} reversais, {len(alertas)} alertas")
 
-# ── ABAS ──
+# ═══ ABAS ═══
 combinados = sorted(reversais + alertas, key=lambda x: str(x["data"]), reverse=True)
 
 def _render_lista(eventos):
