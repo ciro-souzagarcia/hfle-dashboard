@@ -69,19 +69,31 @@ data_ini = st.date_input("📅", value=datetime.strptime(MT5_HISTORY_START_DATE,
 data_ts = pd.Timestamp(data_ini)
 
 # ═══ CONFIG ═══
-with st.expander("🔔 REVERSAL / ⚠️ ALERTA", expanded=False):
+with st.expander("🔔 REVERSAL / ⚠️ ALERTA", expanded=True):
     from notifier import tfs_activos, salvar_tfs_activos, notify, cross_tfs_activos, salvar_cross_tfs_activos
     atuais = tfs_activos()
     cross_atuais = cross_tfs_activos()
-    c1, c2 = st.columns(2)
-    with c1:
-        rev_on = st.checkbox("🔔 REVERSAL", value=len(atuais) > 0)
-        if rev_on and len(atuais) == 0: salvar_tfs_activos(TFS)
-        elif not rev_on and len(atuais) > 0: salvar_tfs_activos([])
-    with c2:
-        al_on = st.checkbox("⚠️ ALERTA", value=len(cross_atuais) > 0)
-        if al_on and len(cross_atuais) == 0: salvar_cross_tfs_activos(TFS)
-        elif not al_on and len(cross_atuais) > 0: salvar_cross_tfs_activos([])
+
+    st.markdown('<span style="font-weight:600;font-size:13px;">🔔 REVERSAL</span>', unsafe_allow_html=True)
+    cols_r = st.columns(8)
+    novos_r = []
+    for i, tf in enumerate(sorted(TFS)):
+        with cols_r[i]:
+            if st.checkbox(f"M{tf}", value=tf in atuais, key=f"rev_{tf}"):
+                novos_r.append(tf)
+    if set(novos_r) != atuais:
+        salvar_tfs_activos(novos_r)
+
+    st.markdown('<span style="font-weight:600;font-size:13px;">⚠️ ALERTA</span>', unsafe_allow_html=True)
+    cols_a = st.columns(8)
+    novos_a = []
+    for i, tf in enumerate(sorted(TFS)):
+        with cols_a[i]:
+            if st.checkbox(f"M{tf}", value=tf in cross_atuais, key=f"al_{tf}"):
+                novos_a.append(tf)
+    if set(novos_a) != cross_atuais:
+        salvar_cross_tfs_activos(novos_a)
+
     t1, t2 = st.columns(2)
     with t1:
         if st.button("🔔 Testar REVERSAL", use_container_width=True): notify("<b>HFLE</b>\nReversal OK ✅")
