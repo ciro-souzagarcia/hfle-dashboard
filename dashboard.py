@@ -23,6 +23,8 @@ st.markdown("""
   .ev-tag-a { background:#FF9800;color:#000;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:700; }
   .ev-tf { font-weight:700;min-width:40px;text-align:center;font-size:14px;color:#fff; }
   .ev-hma { color:#ddd;font-size:14px; }
+  .ev-dir-up { color:#2196F3;font-weight:700;min-width:18px;text-align:center;font-size:16px; }
+  .ev-dir-down { color:#FF9800;font-weight:700;min-width:18px;text-align:center;font-size:16px; }
 
   [data-testid="stDateInput"] { min-width:100px; }
   [data-testid="stDateInput"] input { font-size:12px;padding:2px 6px; }
@@ -48,6 +50,14 @@ else:
     st.caption(f"{len(arqs)} CSVs carregados")
 
 # ── TF ROW ──
+def _arrow_dir(trend_or_dir):
+    t = str(trend_or_dir).upper()
+    if t in ("UPTREND", "UP"):
+        return "▲"
+    if t in ("DOWNTREND", "DOWN"):
+        return "▼"
+    return ""
+
 tfs_html = '<div class="tf-row">'
 for tf in TFS:
     fp = os.path.join(BASE, f"OUTPUT_M{tf}.csv")
@@ -106,7 +116,9 @@ for tf in TFS:
         df = df[df["datetime"] >= data_ts]
         df = df[df["event"].notna() & (df["event"] != "")]
         for _, r in df.iterrows():
-            reversais.append({"data": r["datetime"], "tf": f"M{tf}", "hma": str(r.get("event",""))})
+            direcao = str(r.get("trend", "")).upper()
+            seta = _arrow_dir(direcao)
+            reversais.append({"data": r["datetime"], "tf": f"M{tf}", "hma": str(r.get("event","")), "seta": seta, "tipo": "R"})
     except Exception as e:
         st.warning(f"M{tf}: {e}")
 
@@ -123,36 +135,40 @@ for fp in sorted(glob.glob(os.path.join(BASE, "CROSS_TF_M*_VS_M*.csv"))):
         if cdf.empty:
             continue
         for _, r in cdf.iterrows():
-            alertas.append({"data": r["datetime"], "tf": f"M{int(r['slow_tf'])}", "hma": f'HMA{r["period"]}'})
+            direcao = str(r.get("direction", "")).upper()
+            seta = _arrow_dir(direcao)
+            alertas.append({"data": r["datetime"], "tf": f"M{int(r['slow_tf'])}", "hma": f'HMA{r["period"]}', "seta": seta, "tipo": "A"})
     except Exception as e:
         st.warning(f"{fn}: {e}")
 
 st.caption(f"{len(reversais)} reversais, {len(alertas)} alertas")
 
 # ── ABAS ──
-aba_tudo, aba_rev, aba_al = st.tabs(["📋 TODOS", "🔄 REVERSAL", "⚠️ ALERTA"])
-
-combinados = []
-for r in reversais:
-    combinados.append({"data": r["data"], "tf": r["tf"], "hma": r["hma"], "tipo": "R"})
-for a in alertas:
-    combinados.append({"data": a["data"], "tf": a["tf"], "hma": a["hma"], "tipo": "A"})
+combinados = sorted(reversais + alertas, key=lambda x: str(x["data"]), reverse=True)
 
 def _render_lista(eventos):
     if not eventos:
         st.info("Nenhum")
         return
-    df = pd.DataFrame(eventos).sort_values("data", ascending=False)
-    for _, r in df.iterrows():
+    for r in eventos:
         ts = r["data"].strftime("%d/%m %H:%M") if hasattr(r["data"], "strftime") else str(r["data"])
         e_tag = "ev-tag-r" if r["tipo"] == "R" else "ev-tag-a"
-        st.markdown(f'<div class="ev"><span class="ev-time">{ts}</span><span class="{e_tag}">{r["tipo"]}</span><span class="ev-tf">{r["tf"]}</span><span class="ev-hma">{r["hma"]}</span></div>', unsafe_allow_html=True)
+        dir_cls = "ev-dir-up" if r["seta"] == "▲" else "ev-dir-down" if r["seta"] == "▼" else ""
+        st.markdown(
+            f'<div class="ev">'
+            f'<span class="ev-time">{ts}</span>'
+            f'<span class="{e_tag}">{r["tipo"]}</span>'
+            f'<span class="ev-tf">{r["tf"]}</span>'
+            f'<span class="{dir_cls}">{r["seta"]}</span>'
+            f'<span class="ev-hma">{r["hma"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
+aba_tudo, aba_rev, aba_al = st.tabs(["📋 TODOS", "🔄 REVERSAL", "⚠️ ALERTA"])
 with aba_tudo:
     _render_lista(combinados)
-
 with aba_rev:
     _render_lista(reversais)
-
 with aba_al:
     _render_lista(alertas)
